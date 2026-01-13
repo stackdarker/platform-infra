@@ -1,0 +1,169 @@
+name: platform
+
+networks:
+  platform-net:
+
+volumes:
+  auth_db_data:
+  notification_db_data:
+  media_db_data:
+  redis_data:
+  minio_data:
+
+services:
+  # ----------------------------
+  # Databases
+  # ----------------------------
+  auth-db:
+    image: postgres:16
+    container_name: auth-db
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    ports:
+      - "5433:5432" 
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - platform-net
+
+  notification-db:
+    image: postgres:16
+    container_name: notification-db
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - platform-net
+
+  media-db:
+    image: postgres:16
+    container_name: media-db
+    environment:
+      POSTGRES_DB: media_db
+      POSTGRES_USER: media_user
+      POSTGRES_PASSWORD: media_pass
+    ports:
+      - "5435:5432"
+    volumes:
+      - media_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U media_user -d media_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - platform-net
+
+  # ----------------------------
+  # Redis 
+  # ----------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: platform-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - platform-net
+
+  # ----------------------------
+  # MinIO 
+  # ----------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: platform-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # console
+    volumes:
+      - minio_data:/data
+    networks:
+      - platform-net
+
+  # ----------------------------
+  # Services 
+  # ----------------------------
+  auth-service:
+    build:
+      context: ../platform-auth-service
+    container_name: auth-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: auth_pass
+    ports:
+      - "8081:8080" 
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - platform-net
+
+  notification-service:
+    build:
+      context: ../platform-notification-service
+    container_name: notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: notification_user
+      SPRING_DATASOURCE_PASSWORD: notification_pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8082:8080"
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - platform-net
+
+  media-service:
+    build:
+      context: ../platform-media-service
+    container_name: media-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://media-db:5432/media_db
+      SPRING_DATASOURCE_USERNAME: media_user
+      SPRING_DATASOURCE_PASSWORD: media_pass
+
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: media
+    ports:
+      - "8083:8080"
+    depends_on:
+      media-db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - platform-net
