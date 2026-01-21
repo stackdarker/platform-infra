@@ -36,6 +36,28 @@ services:
     networks:
       - platform-net
 
+  platform-auth-service:
+    container_name: platform-auth-service
+    build:
+      context: ../platform-auth-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # Optional overrides (profile already points at auth-db + redis by name)
+      AUTH_DB_NAME: ${AUTH_DB_NAME}
+      AUTH_DB_USER: ${AUTH_DB_USER}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    networks:
+      - platform-net
+
 networks:
   platform-net:
     name: platform-net
