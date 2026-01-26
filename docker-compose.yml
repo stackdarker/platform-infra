@@ -88,6 +88,33 @@ services:
       - prometheus
     networks:
       - platform-net
+  
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: platform-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    networks:
+      - platform-net
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: platform-promtail
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    networks:
+      - platform-net
 
 networks:
   platform-net:
@@ -97,3 +124,4 @@ volumes:
   auth_db_data:
   redis_data:
   grafana_data:
+  loki_data:
