@@ -1,0 +1,34 @@
+groups:
+  - name: platform-auth-service
+    rules:
+      - alert: AuthServiceDown
+        expr: up{job="platform-auth-service"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "platform-auth-service is down"
+          description: "Prometheus cannot scrape platform-auth-service for 30s."
+
+      - alert: AuthServiceHigh5xxRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{job="platform-auth-service", status=~"5.."}[2m]))
+            /
+            sum(rate(http_server_requests_seconds_count{job="platform-auth-service"}[2m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx rate on platform-auth-service"
+          description: "5xx responses are > 5% for 2 minutes."
+
+      - alert: AuthRefreshFailureSpike
+        expr: rate(auth_refresh_total{result="failure"}[2m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Token refresh failures spiking"
+          description: "auth_refresh_total failures > 1/sec for 2 minutes."
