@@ -1,6 +1,7 @@
 groups:
   - name: platform-auth-service
     rules:
+      # --- Availability ---
       - alert: PlatformAuthServiceDown
         expr: up{job="platform-auth-service"} == 0
         for: 30s
@@ -11,31 +12,62 @@ groups:
           summary: "platform-auth-service is DOWN"
           description: "Prometheus cannot scrape platform-auth-service for 30s."
 
-      - alert: PlatformAuthHigh5xxRate
-        expr: |
-          (
-            sum(rate(http_server_requests_seconds_count{job="platform-auth-service",status=~"5..",uri!~"/actuator.*"}[5m]))
-            /
-            sum(rate(http_server_requests_seconds_count{job="platform-auth-service",uri!~"/actuator.*"}[5m]))
-          ) > 0.05
-        for: 2m
-        labels:
-          severity: warning
-          service: platform-auth-service
-        annotations:
-          summary: "High 5xx rate on platform-auth-service"
-          description: "More than 5% of requests are 5xx for 2 minutes."
-
-      - alert: PlatformAuthHighLatencyP95
+      # --- Latency ---
+      - alert: PlatformAuthHighP95Latency
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(http_server_requests_seconds_bucket{job="platform-auth-service",uri!~"/actuator.*"}[5m])) by (le)
-          ) > 1.5
+            sum by (le) (
+              rate(http_server_requests_seconds_bucket{job="platform-auth-service"}[5m])
+            )
+          ) > 0.5
         for: 5m
         labels:
           severity: warning
           service: platform-auth-service
         annotations:
-          summary: "High latency p95 on platform-auth-service"
-          description: "p95 request latency > 1.5s for 5 minutes."
+          summary: "High p95 latency on platform-auth-service"
+          description: "p95 latency > 500ms for 5m."
+
+      # --- Error rate (5xx) ---
+      - alert: PlatformAuthHigh5xxRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{job="platform-auth-service",status=~"5.."}[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{job="platform-auth-service"}[5m]))
+          ) > 0.02
+        for: 5m
+        labels:
+          severity: warning
+          service: platform-auth-service
+        annotations:
+          summary: "High 5xx error rate on platform-auth-service"
+          description: "5xx rate > 2% for 5m."
+
+      # --- JVM memory pressure (works if JVM metrics are exposed) ---
+      - alert: PlatformAuthHighHeapUsage
+        expr: |
+          (
+            sum(jvm_memory_used_bytes{job="platform-auth-service",area="heap"})
+            /
+            sum(jvm_memory_max_bytes{job="platform-auth-service",area="heap"})
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: platform-auth-service
+        annotations:
+          summary: "High heap usage on platform-auth-service"
+          description: "Heap usage > 85% for 10m."
+
+      # --- CPU pressure ---
+      - alert: PlatformAuthHighCpu
+        expr: rate(process_cpu_usage{job="platform-auth-service"}[5m]) > 0.80
+        for: 10m
+        labels:
+          severity: warning
+          service: platform-auth-service
+        annotations:
+          summary: "High CPU usage on platform-auth-service"
+          description: "process_cpu_usage > 0.80 for 10m."
