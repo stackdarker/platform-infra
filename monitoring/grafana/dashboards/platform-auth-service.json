@@ -1,0 +1,183 @@
+{
+  "uid": "platform-auth-demo",
+  "title": "Platform Auth (Demo)",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "tags": ["platform", "auth", "demo"],
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "DS_PROMETHEUS",
+        "label": "Prometheus",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      },
+      {
+        "type": "datasource",
+        "name": "DS_LOKI",
+        "label": "Loki",
+        "query": "loki",
+        "current": { "text": "Loki", "value": "Loki" }
+      },
+      {
+        "type": "query",
+        "name": "job",
+        "label": "Job",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "refresh": 1,
+        "query": {
+          "query": "label_values(up, job)",
+          "refId": "PromJob"
+        },
+        "current": { "text": "platform-auth-service", "value": "platform-auth-service" }
+      },
+      {
+        "type": "query",
+        "name": "service",
+        "label": "Loki service",
+        "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+        "refresh": 1,
+        "query": {
+          "query": "label_values({project=~\".+\"}, service)",
+          "refId": "LokiService"
+        },
+        "current": { "text": "platform-auth-service", "value": "platform-auth-service" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Service Up",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "max(up{job=\"$job\"})" }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Req/s (all)",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count{job=\"$job\"}[1m]))" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "5xx / min",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(increase(http_server_requests_seconds_count{job=\"$job\", status=~\"5..\"}[1m]))" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "JVM Heap Used (MB)",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(jvm_memory_used_bytes{job=\"$job\", area=\"heap\"}) / 1024 / 1024"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP Req/s by Status",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate(http_server_requests_seconds_count{job=\"$job\"}[1m]))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency p95 (ms)",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"$job\"}[5m]))) * 1000"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM CPU Process (cores)",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "rate(process_cpu_seconds_total{job=\"$job\"}[1m])" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "DB Pool (Hikari) Connections",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "max(hikaricp_connections_active{job=\"$job\"})" },
+        { "refId": "B", "expr": "max(hikaricp_connections_idle{job=\"$job\"})" },
+        { "refId": "C", "expr": "max(hikaricp_connections{job=\"$job\"})" }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Auth Logs (service label)",
+      "gridPos": { "x": 0, "y": 19, "w": 12, "h": 10 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"$service\"} |~ \"(?i)error|exception|fail\""
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Auth Logs (container label)",
+      "gridPos": { "x": 12, "y": 19, "w": 12, "h": 10 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{container=~\"/?platform-auth-service\"}"
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    }
+  ]
+}
