@@ -1,5 +1,15 @@
+global: {}
+
 route:
-  receiver: "default"
+  receiver: "demo-webhook"
+  group_by: ["alertname", "service"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 2h
 
 receivers:
-  - name: "default"
+  - name: "demo-webhook"
+    webhook_configs:
+      # dummy sink; replace later with Slack/Discord/email/etc
+      - url: "http://host.docker.internal:9999/alert"
+        send_resolved: true
