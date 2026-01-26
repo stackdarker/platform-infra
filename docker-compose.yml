@@ -44,9 +44,6 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      AUTH_DB_NAME: ${AUTH_DB_NAME}
-      AUTH_DB_USER: ${AUTH_DB_USER}
-      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
     depends_on:
       auth-db:
         condition: service_healthy
@@ -58,21 +55,22 @@ services:
       - platform-net
 
   prometheus:
-    image: prom/prometheus:v2.54.1
+    image: prom/prometheus:v2.52.0
     container_name: platform-prometheus
     restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
       - platform-auth-service
     networks:
       - platform-net
 
   grafana:
-    image: grafana/grafana:11.2.0
+    image: grafana/grafana:11.1.0
     container_name: platform-grafana
     restart: unless-stopped
     ports:
@@ -82,6 +80,9 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
     networks:
@@ -94,5 +95,4 @@ networks:
 volumes:
   auth_db_data:
   redis_data:
-  prometheus_data:
   grafana_data:
