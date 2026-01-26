@@ -114,6 +114,19 @@ services:
     networks:
       - platform-net
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: platform-alertmanager
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    networks:
+      - platform-net
+
 networks:
   platform-net:
     name: platform-net

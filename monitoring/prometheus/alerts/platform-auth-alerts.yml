@@ -1,0 +1,41 @@
+groups:
+  - name: platform-auth-service
+    rules:
+      - alert: PlatformAuthServiceDown
+        expr: up{job="platform-auth-service"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: platform-auth-service
+        annotations:
+          summary: "platform-auth-service is DOWN"
+          description: "Prometheus cannot scrape platform-auth-service for 30s."
+
+      - alert: PlatformAuthHigh5xxRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{job="platform-auth-service",status=~"5..",uri!~"/actuator.*"}[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{job="platform-auth-service",uri!~"/actuator.*"}[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: platform-auth-service
+        annotations:
+          summary: "High 5xx rate on platform-auth-service"
+          description: "More than 5% of requests are 5xx for 2 minutes."
+
+      - alert: PlatformAuthHighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_server_requests_seconds_bucket{job="platform-auth-service",uri!~"/actuator.*"}[5m])) by (le)
+          ) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+          service: platform-auth-service
+        annotations:
+          summary: "High latency p95 on platform-auth-service"
+          description: "p95 request latency > 1.5s for 5 minutes."
