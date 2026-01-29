@@ -30,3 +30,10 @@ scrape_configs:
 
     pipeline_stages:
       - docker: {}
+
+      - regex:
+          expression: 'traceId=(?P<traceId>[a-f0-9]+)\s+spanId=(?P<spanId>[a-f0-9]+)'
+
+      - labels:
+          traceId:
+          spanId:

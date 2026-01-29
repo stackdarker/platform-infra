@@ -142,6 +142,21 @@ services:
     networks:
       - platform-net
 
+  demo-traffic:
+    image: alpine:3.20
+    container_name: platform-demo-traffic
+    depends_on:
+      - platform-auth-service
+    command: >
+      sh -c "apk add --no-cache curl;
+             while true; do
+               curl -s http://platform-auth-service:8081/v1/health >/dev/null;
+               curl -s http://platform-auth-service:8081/actuator/health >/dev/null;
+               sleep 1;
+             done"
+    networks:
+      - platform-net
+
 networks:
   platform-net:
     name: platform-net
