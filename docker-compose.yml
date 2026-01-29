@@ -65,6 +65,7 @@ services:
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/alerts:/etc/prometheus/alerts:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
     depends_on:
       - platform-auth-service
     networks:

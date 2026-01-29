@@ -1,0 +1,41 @@
+groups:
+  - name: platform-auth.recording
+    interval: 10s
+    rules:
+      # RPS
+      - record: service:http_requests:rate5m
+        expr: |
+          sum by (application) (
+            rate(http_server_requests_seconds_count{application="platform-auth-service"}[5m])
+          )
+
+      # 5xx error rate
+      - record: service:http_requests_5xx:rate5m
+        expr: |
+          sum by (application) (
+            rate(http_server_requests_seconds_count{application="platform-auth-service",status=~"5.."}[5m])
+          )
+
+      # Error ratio (5xx / all)
+      - record: service:http_error_ratio5m
+        expr: |
+          (
+            service:http_requests_5xx:rate5m
+          )
+          /
+          clamp_min(service:http_requests:rate5m, 0.000001)
+
+      # p95 latency (seconds)
+      - record: service:http_latency_p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, application) (
+              rate(http_server_requests_seconds_bucket{application="platform-auth-service"}[5m])
+            )
+          )
+
+      # JVM memory used (bytes)
+      - record: service:jvm_memory_used_bytes
+        expr: |
+          sum by (application) (jvm_memory_used_bytes{application="platform-auth-service"})

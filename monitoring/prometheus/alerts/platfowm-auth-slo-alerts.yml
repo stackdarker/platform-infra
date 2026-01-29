@@ -1,0 +1,32 @@
+groups:
+  - name: platform-auth.alerts
+    rules:
+      - alert: PlatformAuthHighErrorRate
+        expr: service:http_error_ratio5m{application="platform-auth-service"} > 0.02
+        for: 5m
+        labels:
+          severity: warning
+          service: platform-auth
+        annotations:
+          summary: "platform-auth elevated 5xx error ratio"
+          description: "5xx ratio > 2% for 5m (check recent deploys, DB/Redis, auth failures vs 5xx)."
+
+      - alert: PlatformAuthHighLatencyP95
+        expr: service:http_latency_p95{application="platform-auth-service"} > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: platform-auth
+        annotations:
+          summary: "platform-auth high p95 latency"
+          description: "p95 latency > 500ms for 10m. Check DB, Redis, thread pools."
+
+      - alert: PlatformAuthNoTraffic
+        expr: service:http_requests:rate5m{application="platform-auth-service"} < 0.001
+        for: 15m
+        labels:
+          severity: info
+          service: platform-auth
+        annotations:
+          summary: "platform-auth has no traffic"
+          description: "No requests observed. If expected, ignore; otherwise check routing/client."
