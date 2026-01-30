@@ -1,18 +1,119 @@
-platform-infra
 
-Local infrastructure for the platform (databases, caches, etc.).
+---
 
-Services included
-- Postgres (auth-db)
-- Redis
+# 📘 `platform-infra/README.md`
 
-Quickstart (Git Bash)
-1) cp .env.example .env
-2) docker compose --env-file .env up -d
-3) docker compose ps
+```md
+# Platform Infrastructure
 
-Stop
-- docker compose --env-file .env down
+Infrastructure stack for the Platform ecosystem.
+Provides databases, caching, observability, alerting, and demo traffic generation.
 
-Reset data (DANGEROUS: deletes volumes)
-- docker compose --env-file .env down -v
+---
+
+## 🧱 Services
+
+| Service | Purpose |
+|------|--------|
+| PostgreSQL | Auth database |
+| Redis | Rate limiting + token support |
+| Prometheus | Metrics collection |
+| Grafana | Dashboards |
+| Loki | Log aggregation |
+| Promtail | Log shipping |
+| Tempo | Distributed tracing |
+| Alertmanager | Alert routing |
+| Demo Traffic | Synthetic load |
+
+---
+
+## 🧩 Architecture Overview
+
+- All services run on a shared Docker network
+- Auth service exports metrics, logs, and traces
+- Prometheus scrapes metrics
+- Loki ingests logs
+- Tempo ingests traces
+- Grafana provides unified observability
+
+---
+
+## 🐳 Running the Stack
+
+bash
+docker compose up -d
+
+check running containers:
+docker ps
+
+---
+
+## 🌐 Exposed Ports
+Service ---	Port
+Auth Service	8081
+PostgreSQL	5433
+Redis	6379
+Prometheus	9090
+Grafana	3000
+Loki	3100
+Tempo	3200
+Alertmanager	9093
+
+--- 
+
+## 📊 Grafana
+
+- URL: http://localhost:3000
+
+- - Username: admin
+- - Password: admin
+
+Pre-provisioned:
+- Prometheus datasource
+- Loki datasource
+- Tempo datasource
+- Dashboards for auth service
+
+---
+
+## 🧪 Demo Traffic
+
+A lightweight Alpine container continuously hits:
+
+- v1/health
+- /actuator/health
+
+Used to:
+- Generate metrics
+- Populate logs
+- Create traces
+- Validate dashboards
+
+--- 
+
+## 🛠 Environment Variables
+
+Loaded via .env:
+- Database credentials
+- Redis port
+- Service configuration
+
+---
+
+### 🔁 Rebuilding Everything
+
+To ensure a clean rebuild:
+
+docker compose down -v
+docker compose build --no-cache
+docker compose up -d
+
+---
+
+### 📌 Status
+
+✅ Database healthy
+✅ Redis healthy
+✅ Observability pipeline complete
+✅ Alerts wired
+✅ Demo traffic running
