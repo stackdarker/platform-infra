@@ -1,0 +1,45 @@
+groups:
+  - name: platform-auth-service.rules
+    interval: 10s
+    rules:
+      # ===== RED metrics for HTTP =====
+      - record: service:http_requests:rate5m
+        expr: sum by (service) (rate(http_server_requests_seconds_count{service="platform-auth-service"}[5m]))
+
+      - record: service:http_requests_errors:rate5m
+        expr: sum by (service) (rate(http_server_requests_seconds_count{service="platform-auth-service",outcome="SERVER_ERROR"}[5m]))
+            + sum by (service) (rate(http_server_requests_seconds_count{service="platform-auth-service",outcome="CLIENT_ERROR"}[5m]))
+
+      - record: service:http_requests_error_ratio5m
+        expr: |
+          (
+            service:http_requests_errors:rate5m{service="platform-auth-service"}
+          )
+          /
+          clamp_min(service:http_requests:rate5m{service="platform-auth-service"}, 0.000001)
+
+      - record: service:http_latency_p95_seconds5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service) (rate(http_server_requests_seconds_bucket{service="platform-auth-service"}[5m]))
+          )
+
+      # ===== Business metrics =====
+      - record: service:auth_register_success:rate5m
+        expr: sum by (service) (rate(auth_register_total{service="platform-auth-service",result="success"}[5m]))
+
+      - record: service:auth_register_failure:rate5m
+        expr: sum by (service) (rate(auth_register_total{service="platform-auth-service",result="failure"}[5m]))
+
+      - record: service:auth_login_success:rate5m
+        expr: sum by (service) (rate(auth_login_total{service="platform-auth-service",result="success"}[5m]))
+
+      - record: service:auth_login_failure:rate5m
+        expr: sum by (service) (rate(auth_login_total{service="platform-auth-service",result="failure"}[5m]))
+
+      - record: service:auth_refresh_success:rate5m
+        expr: sum by (service) (rate(auth_refresh_total{service="platform-auth-service",result="success"}[5m]))
+
+      - record: service:auth_refresh_failure:rate5m
+        expr: sum by (service) (rate(auth_refresh_total{service="platform-auth-service",result="failure"}[5m]))
