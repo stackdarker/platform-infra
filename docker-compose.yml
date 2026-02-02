@@ -21,6 +21,46 @@ services:
     networks:
       - platform-net
 
+  notification-db:
+    image: postgres:16-alpine
+    container_name: platform-notification-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${NOTIFICATION_DB_NAME}
+      POSTGRES_USER: ${NOTIFICATION_DB_USER}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+    ports:
+      - "5434:5432"
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NOTIFICATION_DB_USER} -d ${NOTIFICATION_DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - platform-net
+
+  media-db:
+    image: postgres:16-alpine
+    container_name: platform-media-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MEDIA_DB_NAME}
+      POSTGRES_USER: ${MEDIA_DB_USER}
+      POSTGRES_PASSWORD: ${MEDIA_DB_PASSWORD}
+    ports:
+      - "5435:5432"
+    volumes:
+      - media_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MEDIA_DB_USER} -d ${MEDIA_DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - platform-net
+
   redis:
     image: redis:7-alpine
     container_name: platform-redis
@@ -32,6 +72,37 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - platform-net
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: platform-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - platform-net
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-01T16-36-33Z
+    container_name: platform-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -53,6 +124,51 @@ services:
         condition: service_healthy
     ports:
       - "8081:8081"
+    networks:
+      - platform-net
+
+  platform-notification-service:
+    container_name: platform-notification-service
+    build:
+      context: ../platform-notification-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    networks:
+      - platform-net
+
+  platform-media-service:
+    container_name: platform-media-service
+    build:
+      context: ../platform-media-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      media-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
     networks:
       - platform-net
 
@@ -91,7 +207,7 @@ services:
       - prometheus
     networks:
       - platform-net
-  
+
   loki:
     image: grafana/loki:3.0.0
     container_name: platform-loki
@@ -136,9 +252,9 @@ services:
     restart: unless-stopped
     command: ["-config.file=/etc/tempo/tempo.yml"]
     ports:
-      - "3200:3200"   # Tempo HTTP (Grafana queries this)
-      - "4317:4317"   # OTLP gRPC (apps can send traces)
-      - "4318:4318"   # OTLP HTTP (apps can send traces)
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
     volumes:
       - ./monitoring/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
       - tempo_data:/var/tempo
@@ -155,6 +271,8 @@ services:
              while true; do
                curl -s http://platform-auth-service:8081/v1/health >/dev/null;
                curl -s http://platform-auth-service:8081/actuator/health >/dev/null;
+               curl -s http://platform-notification-service:8082/v1/health >/dev/null;
+               curl -s http://platform-media-service:8083/v1/health >/dev/null;
                sleep 1;
              done"
     networks:
@@ -166,8 +284,11 @@ networks:
 
 volumes:
   auth_db_data:
+  notification_db_data:
+  media_db_data:
   redis_data:
   grafana_data:
   loki_data:
   promtail_positions:
   tempo_data:
+  minio_data:

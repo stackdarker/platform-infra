@@ -8,6 +8,18 @@ scrape_configs:
     static_configs:
       - targets: ["platform-auth-service:8081"]
 
+  - job_name: "platform-notification-service"
+    metrics_path: "/actuator/prometheus"
+    scheme: "http"
+    static_configs:
+      - targets: ["platform-notification-service:8082"]
+
+  - job_name: "platform-media-service"
+    metrics_path: "/actuator/prometheus"
+    scheme: "http"
+    static_configs:
+      - targets: ["platform-media-service:8083"]
+
   - job_name: "prometheus"
     static_configs:
       - targets: ["prometheus:9090"]
