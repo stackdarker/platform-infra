@@ -1,9 +1,3 @@
-
----
-
-# 📘 `platform-infra/README.md`
-
-```md
 # Platform Infrastructure
 
 Infrastructure stack for the Platform ecosystem.
@@ -14,27 +8,29 @@ Provides databases, caching, observability, alerting, and demo traffic generatio
 ## 🧱 Services
 
 | Service | Purpose |
-|------|--------|
-| PostgreSQL | Auth database |
+|---------|---------|
+| PostgreSQL (x3) | Isolated database per microservice |
 | Redis | Rate limiting + token support |
+| MinIO | S3-compatible object storage |
+| MailHog | Email testing (SMTP capture) |
 | Prometheus | Metrics collection |
 | Grafana | Dashboards |
 | Loki | Log aggregation |
 | Promtail | Log shipping |
 | Tempo | Distributed tracing |
 | Alertmanager | Alert routing |
-| Demo Traffic | Synthetic load |
+| Demo Traffic | Synthetic load generation |
 
 ---
 
 ## 🧩 Architecture Overview
 
-- All services run on a shared Docker network
-- Auth service exports metrics, logs, and traces
-- Prometheus scrapes metrics
-- Loki ingests logs
-- Tempo ingests traces
-- Grafana provides unified observability
+- All services run on a shared Docker network (`platform-net`)
+- Each microservice exports metrics, logs, and traces
+- Prometheus scrapes metrics from all services
+- Loki ingests structured JSON logs via Promtail
+- Tempo ingests distributed traces via OTLP
+- Grafana provides unified observability across all signals
 
 ```mermaid
 graph TB
@@ -100,11 +96,12 @@ graph TB
 
 ## 🐳 Running the Stack
 
-bash
+```bash
 docker compose up -d
 
-check running containers:
+# check running containers:
 docker ps
+```
 
 ---
 
@@ -129,14 +126,13 @@ docker ps
 | MailHog SMTP | 1025 |
 | MailHog UI | 8025 |
 
---- 
+---
 
 ## 📊 Grafana
 
-- URL: http://localhost:3000
-
-- - Username: admin
-- - Password: admin
+- **URL:** http://localhost:3000
+- **Username:** admin
+- **Password:** admin
 
 Pre-provisioned:
 - Prometheus datasource
@@ -150,8 +146,8 @@ Pre-provisioned:
 
 A lightweight Alpine container continuously hits:
 
-- v1/health
-- /actuator/health
+- `/v1/health`
+- `/actuator/health`
 
 Used to:
 - Generate metrics
@@ -159,31 +155,36 @@ Used to:
 - Create traces
 - Validate dashboards
 
---- 
+---
 
 ## 🛠 Environment Variables
 
-Loaded via .env:
+Loaded via `.env`:
 - Database credentials
 - Redis port
+- JWT secret
+- MinIO credentials
 - Service configuration
 
 ---
 
-### 🔁 Rebuilding Everything
+## 🔁 Rebuilding Everything
 
 To ensure a clean rebuild:
 
+```bash
 docker compose down -v
 docker compose build --no-cache
 docker compose up -d
+```
 
 ---
 
-### 📌 Status
+## 📌 Status
 
-✅ Database healthy
-✅ Redis healthy
-✅ Observability pipeline complete
-✅ Alerts wired
-✅ Demo traffic running
+- ✅ All databases healthy
+- ✅ Redis healthy
+- ✅ MinIO healthy
+- ✅ Observability pipeline complete
+- ✅ Alerts wired
+- ✅ Demo traffic running
